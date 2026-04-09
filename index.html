@@ -1,18 +1,183 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Gas Booking Login</title>
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gas Booking System</title>
+<style>
+body {font-family: Arial, sans-serif; margin:0; background:#f4f6f9;}
+header {background:#ff6600; color:white; padding:15px; text-align:center;}
+.container {max-width:500px; margin:auto; padding:20px;}
+.card {background:white; padding:20px; margin-top:20px; border-radius:10px;}
+input, select {width:100%; padding:10px; margin:8px 0;}
+button {width:100%; padding:10px; margin-top:5px; background:#ff6600; color:white; border:none; cursor:pointer;}
+.hidden {display:none;}
+.status {padding:5px 10px; border-radius:20px; color:white; font-size:12px;}
+.Booked {background:blue;}
+.Dispatched {background:orange;}
+.Delivered {background:green;}
+#toast {position:fixed; bottom:20px; right:20px; background:black; color:white; padding:10px; border-radius:5px; display:none;}
+</style>
 </head>
 <body>
 
-<div class="login-container">
-  <h2>Gas Booking Login</h2>
-  <input type="text" id="username" placeholder="Enter Username">
-  <input type="password" id="password" placeholder="Enter Password">
-  <button onclick="login()">Login</button>
+<header>🔥 Gas Booking System</header>
+
+<div class="container">
+
+  <!-- LOGIN -->
+  <div id="loginBox" class="card">
+    <h3>Login</h3>
+    <input id="luser" placeholder="Username">
+    <input id="lpass" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+    <button onclick="showRegister()">Create Account</button>
+  </div>
+
+  <!-- REGISTER -->
+  <div id="registerBox" class="card hidden">
+    <h3>Register</h3>
+    <input id="ruser" placeholder="Username">
+    <input id="rpass" type="password" placeholder="Password">
+    <input id="remail" placeholder="Email (for notifications)">
+    <button onclick="register()">Register</button>
+    <button onclick="showLogin()">Back to Login</button>
+  </div>
+
+  <!-- USER HOME -->
+  <div id="homeBox" class="card hidden">
+    <h3>Welcome <span id="name"></span></h3>
+    <select id="gasType">
+      <option value="">Select Gas Type</option>
+      <option value="Domestic">Domestic</option>
+      <option value="Commercial">Commercial</option>
+      <option value="Industrial">Industrial</option>
+    </select>
+    <input id="addr" placeholder="Address">
+    <button onclick="book()">Book Gas</button>
+    <button onclick="view()">View Booking History</button>
+    <button onclick="logout()">Logout</button>
+    <button onclick="backHome()" class="hidden" id="backBtn">Back</button>
+    <div id="data"></div>
+  </div>
+
 </div>
 
-<script src="script.js"></script>
+<div id="toast"></div>
+
+<script>
+// INITIALIZE STORAGE
+if(!localStorage.getItem("users")) localStorage.setItem("users","[]");
+if(!localStorage.getItem("bookings")) localStorage.setItem("bookings","[]");
+
+let currentUser = null;
+
+// TOAST
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.innerText = msg;
+  t.style.display = "block";
+  setTimeout(()=>t.style.display="none",2000);
+}
+
+// NAVIGATION
+function showRegister(){
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("registerBox").classList.remove("hidden");
+}
+
+function showLogin(){
+  document.getElementById("registerBox").classList.add("hidden");
+  document.getElementById("loginBox").classList.remove("hidden");
+}
+
+function backHome(){
+  document.getElementById("data").innerHTML="";
+  document.getElementById("backBtn").classList.add("hidden");
+}
+
+// REGISTER
+function register(){
+  let u=document.getElementById("ruser").value.trim();
+  let p=document.getElementById("rpass").value.trim();
+  let e=document.getElementById("remail").value.trim();
+
+  if(!u || !p || !e){ toast("Fill all fields"); return; }
+
+  let users=JSON.parse(localStorage.getItem("users"));
+  if(users.some(x=>x.username===u)){ toast("User exists"); return; }
+
+  users.push({username:u,password:p,email:e});
+  localStorage.setItem("users", JSON.stringify(users));
+  toast("Registered successfully! Use your credentials to login.");
+  document.getElementById("ruser").value="";
+  document.getElementById("rpass").value="";
+  document.getElementById("remail").value="";
+  showLogin();
+}
+
+// LOGIN
+function login(){
+  let u=document.getElementById("luser").value.trim();
+  let p=document.getElementById("lpass").value.trim();
+  let users=JSON.parse(localStorage.getItem("users"));
+  let user=users.find(x=>x.username===u && x.password===p);
+  if(!user){ toast("Invalid credentials"); return; }
+  currentUser=user;
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("homeBox").classList.remove("hidden");
+  document.getElementById("name").innerText=currentUser.username;
+  toast("Login successful!");
+}
+
+// BOOK GAS
+function book(){
+  let addr=document.getElementById("addr").value.trim();
+  let type=document.getElementById("gasType").value;
+  if(!addr || !type){ toast("Fill all fields"); return; }
+  let bookings=JSON.parse(localStorage.getItem("bookings"));
+  bookings.push({
+    user: currentUser.username,
+    email: currentUser.email,
+    address: addr,
+    gasType: type,
+    status:"Booked",
+    time: new Date().toLocaleString()
+  });
+  localStorage.setItem("bookings", JSON.stringify(bookings));
+  toast(`Booked ${type} gas! Email & message sent to ${currentUser.email}`);
+  document.getElementById("addr").value="";
+  document.getElementById("gasType").value="";
+}
+
+// VIEW HISTORY
+function view(){
+  let bookings=JSON.parse(localStorage.getItem("bookings")).filter(b=>b.user===currentUser.username);
+  if(bookings.length===0){ toast("No bookings yet."); return; }
+  let html="<h4>Booking History</h4>";
+  bookings.forEach(b=>{
+    html+=`<div class="card">
+      ${b.gasType} Gas<br>
+      Address: ${b.address}<br>
+      Status: <span class="status ${b.status}">${b.status}</span><br>
+      Time: ${b.time}
+    </div>`;
+  });
+  document.getElementById("data").innerHTML=html;
+  document.getElementById("backBtn").classList.remove("hidden");
+}
+
+// LOGOUT
+function logout(){
+  currentUser=null;
+  document.getElementById("homeBox").classList.add("hidden");
+  document.getElementById("data").innerHTML="";
+  document.getElementById("backBtn").classList.add("hidden");
+  document.getElementById("loginBox").classList.remove("hidden");
+  toast("Logged out, history cleared.");
+}
+
+</script>
+
 </body>
 </html>
